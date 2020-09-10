@@ -1,0 +1,8 @@
+# To be ignored by version control system
+
+
+__pycache__/
+.ipynb_checkpoints/
+env/
+*.egg-info/
+data/
