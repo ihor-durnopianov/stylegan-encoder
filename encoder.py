@@ -13,6 +13,7 @@ from functools import partial
 import contextlib
 import logging
 import io
+import itertools
 
 import numpy as np
 import torch
@@ -66,10 +67,12 @@ def main():
     # Endmonitoring
     latent = _Encoder(argparse.Namespace(**{
         k: v for k, v in inputs.__dict__.items()
-        if k not in {"target_image", "guess"}
+        if k not in {"target_image", "guess", "iterations"}
     })).encode(
         Image.open(inputs.target_image),
-        np.load(inputs.guess) if inputs.guess is not None else None
+        np.load(inputs.guess) if inputs.guess is not None else None,
+        lambda i: i < inputs.iterations,
+        inputs.test
     )
     np.save(
         "%s.npy" % (
@@ -80,7 +83,7 @@ def main():
 
 
 class _LossCalculator:
-    
+
     def __init__(self, device="cpu"):
         extractor = (
             models.vgg16(pretrained=True)
@@ -188,7 +191,7 @@ class _LossCalculator:
 
 
 class _MaskMaker:
-    
+
     def __init__(self):
         self._detector = dlib.get_frontal_face_detector()
         self._predictor = dlib.shape_predictor(unpack_bz2(keras.utils.get_file(
@@ -196,7 +199,7 @@ class _MaskMaker:
             "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2",
             cache_subdir="temp"
         )))
-    
+
     def process(self, target):
         assert len(target.shape) == 4, "input should be of batch-like shape"
         assert target.size(0) == 1, "only one-image batches are supported"
@@ -231,7 +234,7 @@ class _MaskMaker:
 
 
 class _Encoder:
-    
+
     def __init__(self, params):
         self._params = params
         self._device = torch.device("cuda" if params.use_gpu else "cpu")
@@ -263,7 +266,7 @@ class _Encoder:
                 .to(self._device)
         )
 
-    def encode(self, image, guess=None):
+    def encode(self, image, guess=None, continue_=lambda i: i < 1, test=True):
         target = _image_to_batch(image).to(self._device)
         if guess is None:
             guess = Compose([
@@ -279,9 +282,11 @@ class _Encoder:
                 lambda tensor: tensor.requires_grad_(),
             ])(guess)
         optimizer = optim.SGD([guess], self._params.lr)
-        # NOTE: blurry makes little sense if guess is not None
-        blurry = _Blurry()
-        for i in range(self._params.iterations):
+        # # NOTE: blurry makes little sense if guess is not None
+        # blurry = _Blurry()
+        for i in itertools.count():
+            if not continue_(i):
+                break
             # Monitoring
             self._logger.info("step %i", i)
             # Endmonitoring
@@ -294,11 +299,11 @@ class _Encoder:
                     torch.save(guess, buffer)
                     self._logger.debug("guess - %s", buffer.getvalue())
                 self._logger.info("loss - %.4f", loss.item())
-                self._logger.info(
-                    "relative blur - %f", blurry.estimate(generated)
-                )
+                # self._logger.info(
+                #     "relative blur - %f", blurry.estimate(generated)
+                # )
                 # Endmonitoring
-            if self._params.test:
+            if test:
                 break
         return guess
 
@@ -323,6 +328,7 @@ class _Blurry:
 class _Parser(argparse.ArgumentParser):
 
     def specify_args(self):
+        # TODO: refactor this madness
         # return argparse.Namespace(
         args = argparse.Namespace(
             target_image="002464_01.png",

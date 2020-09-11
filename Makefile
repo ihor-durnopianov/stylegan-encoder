@@ -22,4 +22,4 @@ lint: # env
 	pylint encoder.py
 
 build:
-	nbsync.py -mf dev/encode.ipynb encoder.py
+	nbsync.py -mf -d "" dev/encode.ipynb encoder.py
