@@ -129,8 +129,7 @@ class _LossCalculator:
         # self._blur = BoxBlur((48, 48))
 
     def calculate_loss(self, guess_and_generated, target):
-        # Poor way to cache.  TODO: implement lru_cache for instance
-        # methods
+        # Poor way to cache
         if self._mask is None:
             self._mask = self._mask_maker.process(target)
         guess, generated = guess_and_generated
@@ -138,7 +137,6 @@ class _LossCalculator:
         #     target, generated
         # ))
         # generated = self._blur(generated)
-        # TODO: cache calls to _to_features
         return (
             # L1/L2/logcosh on features
             nn.MSELoss()
@@ -328,7 +326,7 @@ class _Blurry:
 class _Parser(argparse.ArgumentParser):
 
     def specify_args(self):
-        # TODO: refactor this madness
+        # This is madness!
         # return argparse.Namespace(
         args = argparse.Namespace(
             target_image="002464_01.png",
@@ -375,7 +373,6 @@ def _define_inputs():
         return parser_or_namespace
 
 
-# TODO: import from somewhere
 def unpack_bz2(src_path):
     data = bz2.BZ2File(src_path).read()
     dst_path = src_path[:-4]
