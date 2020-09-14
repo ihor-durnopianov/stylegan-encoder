@@ -18,8 +18,8 @@ SHELL := /bin/bash
 # 	pytest .
 
 lint: # env
-	source env/bin/activate
-	pylint encoder.py
+	# source env/bin/activate
+	pylint encoder.py || true # Any better way?
 
 build:
 	nbsync.py -mf -d "" dev/encode.ipynb encoder.py

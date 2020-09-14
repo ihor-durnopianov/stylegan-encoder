@@ -35,7 +35,6 @@ from style_gan import g_all as g
 from models.image_to_latent import ImageToLatent as Initializer
 
 import dlib
-import keras
 import bz2
 from imutils import face_utils
 import cv2
@@ -67,7 +66,9 @@ def main():
     # Endmonitoring
     latent = _Encoder(argparse.Namespace(**{
         k: v for k, v in inputs.__dict__.items()
-        if k not in {"target_image", "guess", "iterations"}
+        if k not in {
+            "target_image", "guess", "iterations", "test", "logging_level"
+        }
     })).encode(
         Image.open(inputs.target_image),
         np.load(inputs.guess) if inputs.guess is not None else None,
@@ -80,6 +81,14 @@ def main():
         )(Path(inputs.target_image)),
         latent.detach().cpu().numpy()
     )
+
+
+def unpack_bz2(src_path):
+    data = bz2.BZ2File(src_path).read()
+    dst_path = src_path[:-4]
+    with open(dst_path, 'wb') as fp:
+        fp.write(data)
+    return dst_path
 
 
 class _LossCalculator:
@@ -192,6 +201,8 @@ class _MaskMaker:
 
     def __init__(self):
         self._detector = dlib.get_frontal_face_detector()
+        # Takes forever to import keras, pushed to runtime
+        import keras
         self._predictor = dlib.shape_predictor(unpack_bz2(keras.utils.get_file(
             "shape_predictor_68_face_landmarks.dat.bz2",
             "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2",
@@ -264,7 +275,10 @@ class _Encoder:
                 .to(self._device)
         )
 
-    def encode(self, image, guess=None, continue_=lambda i: i < 1, test=True):
+    def encode(
+        self, image, guess=None, continue_=lambda i: i < 1, test=True,
+        return_byproducts=False
+    ):
         target = _image_to_batch(image).to(self._device)
         if guess is None:
             guess = Compose([
@@ -303,6 +317,14 @@ class _Encoder:
                 # Endmonitoring
             if test:
                 break
+        if return_byproducts:
+            return guess, tuple(
+                Compose([
+                    _from_batch,
+                    _minmax_scale,
+                    ToPILImage(),
+                ])(tensor) for tensor in (generated, self._calc._mask)
+            )
         return guess
 
 
@@ -371,14 +393,6 @@ def _define_inputs():
         return parser_or_namespace.parse_args()
     except AttributeError:
         return parser_or_namespace
-
-
-def unpack_bz2(src_path):
-    data = bz2.BZ2File(src_path).read()
-    dst_path = src_path[:-4]
-    with open(dst_path, 'wb') as fp:
-        fp.write(data)
-    return dst_path
 
 
 # def _to_batch(tensor):
