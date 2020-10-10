@@ -322,6 +322,7 @@ class _Encoder:
                 Compose([
                     _from_batch,
                     _minmax_scale,
+                    lambda tensor: tensor.cpu(),
                     ToPILImage(),
                 ])(tensor) for tensor in (generated, self._calc._mask)
             )
