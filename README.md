@@ -16,7 +16,7 @@ TODO:
 ```python
 from encoder import Encoder
 
-latent = _Encoder(**params).encode(
+latent = Encoder(**params).encode(
     image,
     continue_=lambda i: i < inputs.iterations
 )
