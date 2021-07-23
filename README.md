@@ -1,5 +1,9 @@
 # (Yet another) StyleGAN encoder
 
+Was conceived as a tool that, given low-quality portrait, would try to "imagine" the face
+
+![](screenshot.png)
+
 **To do**:
 * make usable
 * improve
