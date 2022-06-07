@@ -3,3 +3,4 @@
 
 
 from .core import Encoder
+from .step import step

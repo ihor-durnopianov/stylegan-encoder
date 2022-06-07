@@ -13,6 +13,12 @@ import contextlib
 import logging
 import io
 import itertools
+from typing import (
+    Optional,
+    Callable,
+    Union,
+    Tuple,
+)
 
 import numpy as np
 import torch
@@ -275,9 +281,16 @@ class Encoder:
         )
 
     def encode(
-        self, image, guess=None, continue_=lambda i: i < 1, test=True,
-        return_byproducts=False
-    ):
+        self,
+        image: Image.Image,
+        guess: Optional[np.ndarray] = None,
+        continue_: Callable[[int], bool] = lambda i: i < 1,
+        test: bool = True,
+        return_byproducts: bool = False
+    ) -> Union[
+        np.ndarray,
+        Tuple[np.ndarray, Tuple[Image.Image, Image.Image]]
+    ]:
         target = _image_to_batch(image).to(self._device)
         if guess is None:
             guess = Compose([
@@ -306,9 +319,9 @@ class Encoder:
                 loss = self._calc.calculate_loss((guess, generated), target)
                 loss.backward()
                 # Monitoring
-                with io.BytesIO() as buffer:
-                    torch.save(guess, buffer)
-                    self._logger.debug("guess - %s", buffer.getvalue())
+                # with io.BytesIO() as buffer:
+                #     torch.save(guess, buffer)
+                #     self._logger.debug("guess - %s", buffer.getvalue())
                 self._logger.info("loss - %.4f", loss.item())
                 # self._logger.info(
                 #     "relative blur - %f", blurry.estimate(generated)
@@ -316,6 +329,7 @@ class Encoder:
                 # Endmonitoring
             if test:
                 break
+        guess = guess.detach().cpu().numpy()
         if return_byproducts:
             return guess, tuple(
                 Compose([
